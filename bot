@@ -1,0 +1,69 @@
+import telebot
+import os
+from telebot import types 
+ 
+BOT_TOKEN = os.environ.get('7562465469:AAGqnwtk7odixnropr_3jXEcKZfzEyEV2oA')  # Замените на свою переменную окружения
+bot = telebot.TeleBot('7562465469:AAGqnwtk7odixnropr_3jXEcKZfzEyEV2oA')
+ 
+# Никнейм преподавателя
+TEACHER_USERNAME1 = "todaysha" # Замените на нужный вам ник"
+TEACHER_USERNAME2 = "t0tktonushen"
+ 
+@bot.message_handler(commands=['start'])
+def start_command(message):
+	keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+ 
+	if message.from_user.username == TEACHER_USERNAME1 or TEACHER_USERNAME2:
+    	# Интерфейс для преподавателя
+    	project_button = types.KeyboardButton("Управление проектами")
+  	  student_list_button = types.KeyboardButton("Список студентов")
+    	reports_button = types.KeyboardButton("Отчеты")
+    	keyboard.add(project_button, student_list_button, reports_button)
+    	bot.send_message(message.chat.id, "Добро пожаловать, преподаватель! 🎓", reply_markup=keyboard)
+	else:
+    	# Обычный интерфейс для пользователей
+    	menu_button = types.KeyboardButton("Меню")
+    	help_button = types.KeyboardButton("Помощь")
+    	projects_button = types.KeyboardButton("Проекты")
+    	contacts_button = types.KeyboardButton("Контакты")
+    	keyboard.add(menu_button, help_button, projects_button, contacts_button)
+    	bot.send_message(message.chat.id, "Привет, вы зашли в бот для проектов! 👋", reply_markup=keyboard)
+ 
+@bot.message_handler(func=lambda message: message.text == "Управление проектами")
+def manage_projects(message):
+	if message.from_user.username == TEACHER_USERNAME:
+    	bot.reply_to(message, "Здесь вы можете управлять проектами.")
+	else:
+    	bot.reply_to(message, "Эта функция доступна только преподавателю.")
+ 
+@bot.message_handler(func=lambda message: message.text == "Список студентов")
+def student_list(message):
+	if message.from_user.username == TEACHER_USERNAME:
+    	bot.reply_to(message, "Список студентов.")
+	else:
+    	bot.reply_to(message, "Эта функция доступна только преподавателю.")
+ 
+@bot.message_handler(func=lambda message: message.text == "Отчеты")
+def reports(message):
+	if message.from_user.username == TEACHER_USERNAME:
+    	bot.reply_to(message, "Просмотр отчетов.")
+	else:
+    	bot.reply_to(message, "Эта функция доступна только преподавателю.")
+ 
+@bot.message_handler(func=lambda message: message.text == "Меню")
+def menu_command(message):
+	bot.reply_to(message, "Вы находитесь в меню. Как я могу помочь?")
+ 
+@bot.message_handler(func=lambda message: message.text == "Проекты")
+def projects_command(message):
+	bot.reply_to(message, "Тут что-то обязательно будет")
+ 
+@bot.message_handler(func=lambda message: message.text == "Контакты")
+def contacts_command(message):
+	bot.send_photo(message.chat.id, 'https://pro.guap.ru/avatars/9/8544.jpg', caption= "Преподаватель: Чернышев Станислав Андреевич:\nПочта: madteacher@bk.ru\nТелеграм: @MADComrade")
+ 
+@bot.message_handler(func=lambda message: message.text == "Помощь")
+def help_command(message):
+	bot.reply_to(message, "У меня есть следующие команды:\nstart\n/menu\n/help")
+ 
+bot.polling()
