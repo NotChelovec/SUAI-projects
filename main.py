@@ -1,5 +1,4 @@
 import asyncio
-
 from dotenv import load_dotenv
 
 from database.init_database import init_database
