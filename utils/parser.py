@@ -2,7 +2,7 @@ import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.workbook.workbook import Workbook
 
-в
+
 class Parser:
 
     def __init__(self, file_path: str):
