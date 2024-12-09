@@ -26,3 +26,4 @@ class MissedClass(Base):
                f"student_id={self.student_id!r}, " \
                f"discipline_id={self.discipline_id!r}, " \
                f"date={self.date!r})"
+    
