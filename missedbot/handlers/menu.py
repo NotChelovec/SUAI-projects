@@ -11,12 +11,17 @@ from missedbot.handlers.presence_check import presence_check
 class AdminException(Exception):
     ...
 
+class StudentException(Exception):
+    ...
 
 class Command(Enum):
     DOWNLOAD_SHORT_REPORT = auto()
     DOWNLOAD_FULL_REPORT = auto()
     INTERACTIVE_REPORT = auto()
     PRESENCE_CHECK = auto()
+    SEE_GROUP = auto()
+    SEND_REPORT = auto()
+    SHOW_GROUP = auto()
 
 
 __admin_commands = {
@@ -26,10 +31,37 @@ __admin_commands = {
     Command.PRESENCE_CHECK: "Проверка присутствия",
 }
 
+__student_commands = {
+    Command.SEE_GROUP: "Список группы",
+    Command.SEND_REPORT: "Отправить отчёт",
+    Command.SHOW_GROUP: "Состав группы",
+}
 
-def menu_keyboard() -> ReplyKeyboardMarkup:
 
+"""
+    Генерирует объект ReplyKeyboardMarkup, содержащий опции меню для администратора.
 
+    :return: Объект ReplyKeyboardMarkup, содержащий опции меню администратора.
+    :rtype: ReplyKeyboardMarkup
+"""
+def student_menu_keyboard() -> ReplyKeyboardMarkup:
+    markup = ReplyKeyboardMarkup(row_width=3)
+    markup.add(
+        KeyboardButton(
+            __student_commands[Command.SEE_GROUP],
+        ),
+    )
+    markup.add(
+        KeyboardButton(
+            __student_commands[Command.SEND_REPORT],
+        ),
+        KeyboardButton(
+            __student_commands[Command.SHOW_GROUP],
+        ),
+    )
+    return markup
+
+def admin_menu_keyboard() -> ReplyKeyboardMarkup:
     markup = ReplyKeyboardMarkup(row_width=3)
     markup.add(
         KeyboardButton(
@@ -51,28 +83,97 @@ def menu_keyboard() -> ReplyKeyboardMarkup:
     )
     return markup
 
-
 def is_admin_command(command: str) -> bool:
+    """
+    Проверяет, является ли указанная команда командой администратора, ища ее в словаре __admin_commands.
 
+    :param command: Строка, представляющая проверяемую команду.
+    :type command: str
+    :return: Булево значение, указывающее, является ли команда командой администратора.
+    :rtype: bool
+    """
     for key, value in __admin_commands.items():
         if value == command:
             return True
     return False
 
+def is_student_command(command: str) -> bool:
+    """
+    Проверяет, является ли указанная команда командой администратора, ища ее в словаре __student_commands.
+
+    :param command: Строка, представляющая проверяемую команду.
+    :type command: str
+    :return: Булево значение, указывающее, является ли команда командой студента.
+    :rtype: bool
+    """
+    for key, value in __student_commands.items():
+        if value == command:
+            return True
+    return False
 
 def get_current_admin_command(command: str) -> Command:
- 
+    """
+    Возвращает ключ команды, если она есть в словаре __admin_commands, в противном случае
+    вызывается исключение AdminException.
+
+    Args:
+        command (str): Команда для поиска в словаре __admin_commands.
+
+    Returns:
+        Ключ команды, если она есть в словаре __admin_commands.
+
+    Raises:
+        AdminException: Если команда не найдена в словаре __admin_commands.
+
+    """
     for key, value in __admin_commands.items():
         if value == command:
             return key
     raise AdminException("Неизвестная команда")
 
+def get_current_student_command(command: str) -> Command:
+    """
+    Возвращает ключ команды, если она есть в словаре __student_commands, в противном случае
+    вызывается исключение StudentException.
+
+    Args:
+        command (str): Команда для поиска в словаре __student_commands.
+
+    Returns:
+        Ключ команды, если она есть в словаре __student_commands.
+
+    Raises:
+        AdminException: Если команда не найдена в словаре __student_commands.
+
+    """
+    for key, value in __student_commands.items():
+        if value == command:
+            return key
+    raise StudentException("Неизвестная команда")
 
 @bot.message_handler(
     is_admin=True,
     func=lambda message: is_admin_command(message.text),
 )
-async def handle_commands(message: Message):
+async def handle_admin_commands(message: Message):
+    """
+    Обрабатывает команды администратора, отправленные в виде
+    сообщений боту. Принимает объект сообщения, и в зависимости
+    от содержащейся в нем команды, вызывает
+    другие функции для выполнения конкретных действий.
+    Функция вызывается только если отправитель сообщения
+    является администратором и текст сообщения распознан
+    как команда администратора.
+    Распознаваемые команды: PRESENCE_CHECK, DOWNLOAD_FULL_REPORT,
+    DOWNLOAD_SHORT_REPORT и INTERACTIVE_REPORT. Для каждой команды
+    вызывается определенная функция для выполнения соответствующего
+    действия.
+
+    :param message: Объект сообщения, содержащий текст команды и
+    другую информацию.
+    :type message: Message
+    :return: None
+    """
 
     command = get_current_admin_command(message.text)
     match command:
@@ -84,3 +185,35 @@ async def handle_commands(message: Message):
             await start_download_report(message, "shortReport")
         case Command.INTERACTIVE_REPORT:
             await start_interactive_report(message)
+
+@bot.message_handler(
+    is_admin=False,
+    func=lambda message: is_student_command(message.text),
+)
+async def handle_student_commands(message: Message):
+    """
+    Обрабатывает команды администратора, отправленные в виде
+    сообщений боту. Принимает объект сообщения, и в зависимости
+    от содержащейся в нем команды, вызывает
+    другие функции для выполнения конкретных действий.
+    Функция вызывается только если отправитель сообщения
+    является администратором и текст сообщения распознан
+    как команда администратора.
+    Распознаваемые команды: SEE_GROUP, SEND_REPORT, SHOW_GROUP. Для каждой команды
+    вызывается определенная функция для выполнения соответствующего
+    действия.
+
+    :param message: Объект сообщения, содержащий текст команды и
+    другую информацию.
+    :type message: Message
+    :return: None
+    """
+
+    command = get_current_student_command(message.text)
+    match command:
+        case Command.SEE_GROUP:
+            await bot.send_message(message.chat.id, "1")
+        case Command.SEND_REPORT:
+            await bot.send_message(message.chat.id, "1")
+        case Command.SHOW_GROUP:
+            await bot.send_message(message.chat.id, "1")

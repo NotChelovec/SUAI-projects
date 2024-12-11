@@ -1,7 +1,6 @@
 import os
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy_utils import database_exists, create_database
 
+from sqlalchemy_utils import database_exists, create_database
 
 from database import database as db
 from database.database import Session, engine
@@ -23,7 +22,7 @@ def init_database() -> None:
         db.create_tables()
         input_data = Parser(os.getenv("PATH_TO_CONFIG_DATA")).get_data()
 
-        session: Session = db.Session()
+        session = db.Session()
         session.add(Admin(telegram_id=os.getenv("DEFAULT_ADMIN")))
         for discipline, groups in input_data.items():
             session.add(

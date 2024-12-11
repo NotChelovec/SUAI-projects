@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from database.init_database import init_database
 from missedbot import bot
-
+6
 load_dotenv()
 
 async def main():

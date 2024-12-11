@@ -188,16 +188,16 @@ async def student_check(
         )
     markup.add(
         InlineKeyboardButton(
-            "🚀", callback_data=f"allPresent_{discipline_id}_{group_id}"
+            "Аудитория полна людей", callback_data=f"allPresent_{discipline_id}_{group_id}"
         ),
         InlineKeyboardButton(
-            "⚔️", callback_data=f"allMissed_{discipline_id}_{group_id}"
+            "Аудитория пуста", callback_data=f"allMissed_{discipline_id}_{group_id}"
         ),
         row_width=2,
     )
     markup.add(
         InlineKeyboardButton(
-            "Принять", callback_data=f"apply_{discipline_id}_{group_id}"
+            "Зафиксировать помещаемость", callback_data=f"apply_{discipline_id}_{group_id}"
         ),
         row_width=1,
     )
@@ -224,10 +224,10 @@ async def callback_all_missed_present(call):
     is_missed = False
     match event:
         case "allPresent":
-            text = "Все студенты присутствуют на занятии!!!"
+            text = "Все студенты присутствуют на занятии!"
         case "allMissed":
             is_missed = True
-            text = "На паре нет ни одного студента!!!"
+            text = "На паре нет ни одного студента!"
 
     crud.set_all_missed_students(
         group_id,
@@ -256,7 +256,7 @@ async def callback_all_present(call):
         discipline_id,
     )
     await bot.edit_message_text(
-        "Все потеряшкинсы зафиксированы!!!",
+        "Посещаемость зафиксированна.",
         call.message.chat.id,
         call.message.id,
     )

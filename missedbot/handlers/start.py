@@ -1,10 +1,10 @@
 from telebot.types import Message, BotCommand, BotCommandScope
 
 from missedbot import bot
-from missedbot.handlers.menu import menu_keyboard
+from missedbot.handlers.menu import admin_menu_keyboard, student_menu_keyboard
 
 
-@bot.message_handler(is_admin=True, commands=["start"])
+@bot.message_handler(is_admin=True, commands=["start1"])
 async def handle_start(message: Message):
     await bot.set_my_commands(
         commands=[
@@ -26,14 +26,19 @@ async def handle_start(message: Message):
     )
     await bot.send_message(
                 message.chat.id,
-                "<b>Поехали!!!</b>",
+                "<b>Здраствуйте, хозяин!</b>",
                 parse_mode="HTML",
                 disable_web_page_preview=True,
-                reply_markup=menu_keyboard(),
+                reply_markup=admin_menu_keyboard(),
             )
 
 
-@bot.message_handler(is_admin=False, commands=['start'])
+@bot.message_handler(is_admin=False, commands=['start2'])
 async def handle_no_add_teacher(message: Message):
-
-    await bot.send_message(message.chat.id, "Ты кто? Оо")
+    await bot.send_message(
+                message.chat.id,
+                "<b>Приветсвую тебя!</b>",
+                parse_mode="HTML",
+                disable_web_page_preview=True,
+                reply_markup=student_menu_keyboard(),
+            )
