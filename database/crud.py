@@ -3,6 +3,7 @@ import datetime
 from sqlalchemy import exists, select, delete, Integer, and_
 from sqlalchemy import func
 
+from database import crud
 from database import database as db
 from model.academic_performance import (
     AcademicPerformance,
@@ -15,7 +16,15 @@ from model.student import Student
 from model.discipline import Discipline
 from model.missed_class import MissedClass
 from model.assigned_discipline import association_table
+from model.team import Team
 
+import openpyxl
+import os
+from dotenv import load_dotenv
+from model.student import Student
+
+load_dotenv()
+PATH_TO_TEAMS = os.getenv('PATH_TO_TEAMS')
 
 def is_admin(user_telegram_id: int) -> bool:
     with db.Session() as session:
@@ -290,3 +299,159 @@ def set_discipline2group(discipline_id: int, group_id: int) -> None:
         group = session.get(Group, group_id)
         group.disciplines.append(discipline)
         session.commit()
+#
+def is_student_registered(student_id: int) -> bool:
+    with db.Session() as session:
+        student = session.get(Student, student_id)
+        return student.is_registered
+
+
+def set_student_registered(student_id: int) -> None:
+    with db.Session() as session:
+        student = session.get(Student, student_id)
+        student.is_registered = True
+        session.commit()
+
+
+def link_telegram_account(student_id: int, telegram_id: int) -> None:
+    with db.Session() as session:
+        student = session.get(Student, student_id)
+        student.telegram_id = telegram_id
+        session.commit()
+
+def get_student_by_name_and_group(full_name: str, group_id: int) -> Student:
+    with db.Session() as session:
+        smt = select(Student).where(
+            and_(
+                Student.full_name == full_name,
+                Student.group_id == group_id
+            )
+        )
+        return session.scalars(smt).one_or_none()
+
+def get_group_by_name(group_name: str) -> Group:
+    with db.Session() as session:
+        smt = select(Group).where(Group.name == group_name)
+        return session.scalars(smt).one_or_none()
+    
+def create_team(name: str, discipline_id: int, group_id: int, creator_id: int) -> Team:
+    with db.Session() as session:
+        team = Team(name=name, discipline_id=discipline_id, group_id=group_id, creator_id=creator_id)
+        session.add(team)
+        session.commit()
+        session.refresh(team)
+        return team
+
+def join_team(team_id: int, student_id: int) -> None:
+    with db.Session() as session:
+        student = session.get(Student, student_id)
+        student.team_id = team_id
+        session.commit()
+        session.refresh(student)
+
+
+def get_team_by_name_and_discipline(name: str, discipline_id: int, group_id: int) -> Team:
+    with db.Session() as session:
+        smt = select(Team).where(and_(Team.name == name, Team.discipline_id == discipline_id, Team.group_id == group_id))
+        return session.scalars(smt).one_or_none()
+
+def get_open_teams_by_discipline_and_group(discipline_id: int, group_id: int) -> list[Team]:
+    with db.Session() as session:
+        smt = select(Team).where(and_(Team.discipline_id == discipline_id, Team.group_id == group_id, Team.is_open == True))
+        return session.scalars(smt).all()
+
+def get_student_by_telegram_id(telegram_id: int) -> Student:
+    with db.Session() as session:
+        smt = select(Student).where(Student.telegram_id == telegram_id)
+        return session.scalars(smt).one_or_none()
+
+def close_team(team_id: int) -> None:
+    with db.Session() as session:
+        team = session.get(Team, team_id)
+        team.close_team()
+        session.commit()
+
+def get_team_members(team_id: int) -> list[Student]:
+    with db.Session() as session:
+        team = session.get(Team, team_id)
+        return team.students
+
+def get_next_team_number(discipline_id: int, group_id: int) -> int:
+    with db.Session() as session:
+        smt = select(func.count(Team.id)).where(and_(Team.discipline_id == discipline_id, Team.group_id == group_id))
+        return session.scalar(smt) + 1
+
+def get_teams_by_student_id(student_id: int) -> list[Team]:
+    with db.Session() as session:
+        smt = select(Team).join(Team.students).where(Student.id == student_id)
+        return session.scalars(smt).all()
+
+def get_team_by_student_and_discipline(student_id: int, discipline_id: int) -> Team:
+    with db.Session() as session:
+        smt = select(Team).join(Team.students).where(Student.id == student_id, Team.discipline_id == discipline_id)
+        return session.scalar(smt)
+
+def get_discipline_by_id(discipline_id: int) -> Discipline:
+    with db.Session() as session:
+        return session.get(Discipline, discipline_id)
+
+def save_teams_to_excel(teams: list):
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.append(['ID', 'Name', 'Discipline_ID', 'Group_ID', 'Creator_ID'])
+
+    for team in teams:
+        sheet.append([team.id, team.name, team.discipline_id, team.group_id, team.creator_id])
+
+    workbook.save(PATH_TO_TEAMS)
+
+def load_teams_from_excel() -> list:
+    if not os.path.exists(PATH_TO_TEAMS):
+        return []
+
+    workbook = openpyxl.load_workbook(PATH_TO_TEAMS)
+    sheet = workbook.active
+    teams = []
+
+    for row in sheet.iter_rows(min_row=2):
+        team = Team(
+            id=row[0].value,
+            name=row[1].value,
+            discipline_id=row[2].value,
+            group_id=row[3].value,
+            creator_id=row[4].value,
+            students=[]
+        )
+        teams.append(team)
+
+    return teams
+
+def get_teams_by_student_id(student_id: int) -> list:
+    teams = load_teams_from_excel()
+    student_teams = []
+
+    for team in teams:
+        if any(student.id == student_id for student in team.students):
+            student_teams.append(team)
+
+    return student_teams
+
+def get_team_by_id(team_id: int) -> Team:
+    teams = load_teams_from_excel()
+    for team in teams:
+        if team.id == team_id:
+            return team
+    return None
+
+def user_has_team_in_discipline(student_id: int, discipline_id: int) -> bool:
+    teams = load_teams_from_excel()
+    for team in teams:
+        if team.creator_id == student_id and team.discipline_id == discipline_id:
+            return True
+    return False
+
+def get_teams_created_by_user(student_id: int) -> list:
+    teams = load_teams_from_excel()
+    user_teams = [team for team in teams if team.creator_id == student_id]
+    return user_teams
+

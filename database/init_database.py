@@ -12,9 +12,7 @@ from model.discipline import Discipline
 from model.missed_class import MissedClass
 from dotenv import load_dotenv
 
-
 load_dotenv()
-
 
 def init_database() -> None:
     if not database_exists(engine.url):

@@ -1,14 +1,8 @@
-from telebot.types import (
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-)
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from database import crud
 
-
-def create_group_inline_button(
-    prefix: str,
-) -> InlineKeyboardMarkup:
+def create_group_inline_button(prefix: str) -> InlineKeyboardMarkup:
     groups = crud.get_groups()
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
@@ -23,10 +17,7 @@ def create_group_inline_button(
     )
     return markup
 
-
-def create_discipline_inline_button(
-    prefix: str,
-) -> InlineKeyboardMarkup:
+def create_discipline_inline_button(prefix: str) -> InlineKeyboardMarkup:
     disciplines = crud.get_disciplines()
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
