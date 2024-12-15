@@ -7,7 +7,7 @@ from database import crud
 
 class TeamStates(StatesGroup):
     AWAITING_REPORT = State()
-    
+
 @bot.message_handler(func=lambda message: message.text == "Мои команды")
 async def handle_my_teams(message: Message):
     user_id = message.from_user.id
@@ -32,8 +32,11 @@ async def callback_next_team(call):
     user_id = call.from_user.id
     try:
         async with bot.retrieve_data(user_id, call.message.chat.id) as data:
+            if 'teams' not in data:
+                await bot.send_message(call.message.chat.id, "Произошла ошибка: не удалось найти данные команд.")
+                return
             teams = data['teams']
-            current_team_index = data['current_team_index']
+            current_team_index = data.get('current_team_index', 0)
 
             next_team_index = (current_team_index + 1) % len(teams)
             data['current_team_index'] = next_team_index
@@ -47,6 +50,10 @@ async def callback_next_team(call):
 
 async def show_team_info(message: Message, teams, index):
     try:
+        if not teams:
+            await bot.send_message(message.chat.id, "Команды не найдены.")
+            return
+
         team = teams[index]
         discipline_name = crud.get_discipline_by_id(team.discipline_id).name
 
@@ -58,6 +65,7 @@ async def show_team_info(message: Message, teams, index):
     except Exception as e:
         print(f"Error in show_team_info: {e}")
         await bot.send_message(message.chat.id, "Произошла ошибка при отображении информации о команде.")
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("manage_team_"))
 async def callback_manage_team(call):
@@ -85,6 +93,44 @@ async def callback_manage_team(call):
     except Exception as e:
         print(f"Error in manage_team callback: {e}")
         await bot.send_message(call.message.chat.id, "Произошла ошибка при управлении командой.")
+
+async def show_team_info(message: Message, teams, index):
+    try:
+        team = teams[index]
+        discipline_name = crud.get_discipline_by_id(team.discipline_id).name
+
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("Далее", callback_data="next_team"))
+        markup.add(InlineKeyboardButton("Управление командой", callback_data=f"manage_team_{team.id}"))
+
+        await bot.send_message(message.chat.id, f"{discipline_name} - группа {team.name}", reply_markup=markup)
+    except Exception as e:
+        print(f"Error in show_team_info: {e}")
+        await bot.send_message(message.chat.id, "Произошла ошибка при отображении информации о команде.")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("team_members_"))
+async def callback_team_members(call):
+    try:
+        callback_data = call.data.split("_")
+        if len(callback_data) < 3:
+            raise ValueError("Некорректные данные callback")
+
+        team_id = int(callback_data[2])
+        teams = crud.load_teams_from_excel()
+        team = next((team for team in teams if team.id == team_id), None)
+        if not team:
+            await bot.send_message(call.message.chat.id, "Команда не найдена.")
+            return
+
+        student_ids = team.members.split(";") if team.members else []
+        students = [crud.get_student_by_id(int(student_id)) for student_id in student_ids if student_id]
+        members_names = "\n".join([student.full_name for student in students if student]) or "Состав группы отсутствует."
+
+        await bot.send_message(call.message.chat.id, f"Состав группы:\n{members_names}")
+    except Exception as e:
+        print(f"Error in team_members callback: {e}")
+        await bot.send_message(call.message.chat.id, "Произошла ошибка при получении состава группы.")
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("upload_report_"))
 async def callback_upload_report(call):

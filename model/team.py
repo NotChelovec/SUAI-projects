@@ -12,7 +12,11 @@ class Team(Base):
     group_id: Mapped[int] = mapped_column(ForeignKey("group.id"))
     creator_id: Mapped[int] = mapped_column(ForeignKey("student.id"))
     is_open: Mapped[bool] = mapped_column(Boolean, default=True)
-
+    members: Mapped[str] = mapped_column(String(1000), default = "")
+    reports: Mapped[str] = mapped_column(String(1000), default = "")
+    student_comment: Mapped[str] = mapped_column(String, default="") # Комментарий для студента
+    teacher_comment: Mapped[str] = mapped_column(String, default="") # Комментарий для преподавателя
+    status: Mapped[int] = mapped_column(Integer, default=1)
     students: Mapped[List["Student"]] = relationship(
         "Student", back_populates="team", foreign_keys="[Student.team_id]"
     )

@@ -23,8 +23,11 @@ import os
 from dotenv import load_dotenv
 from model.student import Student
 
+from typing import Dict, List
+
 load_dotenv()
 PATH_TO_TEAMS = os.getenv('PATH_TO_TEAMS')
+PATH_TO_CONFIG_DATA = os.getenv('PATH_TO_CONFIG_DATA')
 
 def is_admin(user_telegram_id: int) -> bool:
     with db.Session() as session:
@@ -335,19 +338,33 @@ def get_group_by_name(group_name: str) -> Group:
         return session.scalars(smt).one_or_none()
     
 def create_team(name: str, discipline_id: int, group_id: int, creator_id: int) -> Team:
-    with db.Session() as session:
-        team = Team(name=name, discipline_id=discipline_id, group_id=group_id, creator_id=creator_id)
-        session.add(team)
-        session.commit()
-        session.refresh(team)
-        return team
+    teams = load_teams_from_excel()
+    new_id = max((team.id for team in teams), default=0) + 1  # Генерируем уникальный идентификатор
+    team = Team(
+        id=new_id,
+        name=name,
+        discipline_id=discipline_id,
+        group_id=group_id,
+        creator_id=creator_id,
+        members="",  # Инициализация пустой строкой
+        reports="",  # Инициализация пустой строкой
+        status=1,  # Инициализация открыт
+        student_comment="",  # Инициализация пустой строкой
+        teacher_comment=""  # Инициализация пустой строкой
+    )
+    teams.append(team)
+    save_teams_to_excel(teams)
+    return team
 
-def join_team(team_id: int, student_id: int) -> None:
-    with db.Session() as session:
-        student = session.get(Student, student_id)
-        student.team_id = team_id
-        session.commit()
-        session.refresh(student)
+def join_team(team_id: int, student_id: int):
+    teams = load_teams_from_excel()
+    for team in teams:
+        if team.id == team_id:
+            if team.members is None:
+                team.members = ""
+                if str(student_id) not in team.members.split(";"):
+                    team.members += f";{student_id}"
+    save_teams_to_excel(teams)
 
 
 def get_team_by_name_and_discipline(name: str, discipline_id: int, group_id: int) -> Team:
@@ -355,10 +372,9 @@ def get_team_by_name_and_discipline(name: str, discipline_id: int, group_id: int
         smt = select(Team).where(and_(Team.name == name, Team.discipline_id == discipline_id, Team.group_id == group_id))
         return session.scalars(smt).one_or_none()
 
-def get_open_teams_by_discipline_and_group(discipline_id: int, group_id: int) -> list[Team]:
-    with db.Session() as session:
-        smt = select(Team).where(and_(Team.discipline_id == discipline_id, Team.group_id == group_id, Team.is_open == True))
-        return session.scalars(smt).all()
+def get_open_teams_by_discipline_and_group(discipline_id: int, group_id: int) -> list:
+    teams = load_teams_from_excel()
+    return [team for team in teams if team.discipline_id == discipline_id and team.group_id == group_id and team.status == 1]
 
 def get_student_by_telegram_id(telegram_id: int) -> Student:
     with db.Session() as session:
@@ -395,19 +411,19 @@ def get_discipline_by_id(discipline_id: int) -> Discipline:
     with db.Session() as session:
         return session.get(Discipline, discipline_id)
 
-def save_teams_to_excel(teams: list):
+def save_teams_to_excel(teams: List[Team]):
     workbook = openpyxl.Workbook()
     sheet = workbook.active
-    sheet.append(['ID', 'Name', 'Discipline_ID', 'Group_ID', 'Creator_ID', 'Members', 'Reports'])
+    sheet.append(['ID', 'Name', 'Discipline_ID', 'Group_ID', 'Creator_ID', 'Members', 'Reports', 'Status', 'Student_Comment', 'Teacher_Comment'])
 
     for team in teams:
-        sheet.append([team.id, team.name, team.discipline_id, team.group_id, team.creator_id, team.members, team.reports])
+        sheet.append([team.id, team.name, team.discipline_id, team.group_id, team.creator_id, team.members, team.reports, team.status, team.student_comment, team.teacher_comment])
 
     workbook.save(PATH_TO_TEAMS)
 
-def load_teams_from_excel() -> list:
+def load_teams_from_excel() -> List[Team]:
     if not os.path.exists(PATH_TO_TEAMS):
-        return []
+        raise FileNotFoundError(f"Файл с командами не найден: {PATH_TO_TEAMS}")
 
     workbook = openpyxl.load_workbook(PATH_TO_TEAMS)
     sheet = workbook.active
@@ -420,30 +436,11 @@ def load_teams_from_excel() -> list:
             discipline_id=row[2].value,
             group_id=row[3].value,
             creator_id=row[4].value,
-            members=row[5].value,
-            reports=row[6].value if len(row) > 6 else ''
-        )
-        teams.append(team)
-
-    return teams
-
-
-def load_teams_from_excel() -> list:
-    if not os.path.exists(PATH_TO_TEAMS):
-        return []
-
-    workbook = openpyxl.load_workbook(PATH_TO_TEAMS)
-    sheet = workbook.active
-    teams = []
-
-    for row in sheet.iter_rows(min_row=2):
-        team = Team(
-            id=row[0].value,
-            name=row[1].value,
-            discipline_id=row[2].value,
-            group_id=row[3].value,
-            creator_id=row[4].value,
-            students=[]
+            members=row[5].value if row[5].value is not None else "",
+            reports=row[6].value if len(row) > 6 and row[6].value is not None else "",
+            status=row[7].value if len(row) > 7 and row[7].value is not None else 1,
+            student_comment=row[8].value if len(row) > 8 and row[8].value is not None else "",
+            teacher_comment=row[9].value if len(row) > 9 and row[9].value is not None else ""
         )
         teams.append(team)
 
@@ -485,3 +482,80 @@ def save_report(team_id: int, report: str):
             team.reports = report
             break
     save_teams_to_excel(teams)
+
+def get_students_by_ids(ids: list) -> list:
+    with db.Session as session:
+        return session.query(Student).filter(Student.id.in_(ids)).all()
+    
+def update_team_comment(team_id: int, comment: str, comment_type: str):
+    teams = load_teams_from_excel()
+    for team in teams:
+        if team.id == team_id:
+            if comment_type == "student":
+                team.student_comment = comment
+            elif comment_type == "teacher":
+                team.teacher_comment = comment
+            break
+    save_teams_to_excel(teams)
+
+    
+def get_teams_by_discipline(discipline_id: int) -> list:
+    teams = load_teams_from_excel()
+    result = [team for team in teams if team.discipline_id == discipline_id]
+
+    print(f"Loaded Teams: {teams}")
+    print(f"Filtered Teams for Discipline ID {discipline_id}: {result}")
+    
+    if not result:
+        print(f"No teams found for discipline_id: {discipline_id}")
+    
+    return result
+
+def get_unique_disciplines() -> List[Dict[str, str]]:
+    workbook = openpyxl.load_workbook(PATH_TO_CONFIG_DATA)
+    disciplines = set()
+    
+    for sheet_name in workbook.sheetnames:
+        group, discipline = sheet_name.split('|')
+        disciplines.add(discipline.strip())
+    
+    return [{'id': idx, 'name': discipline} for idx, discipline in enumerate(disciplines, start=1)]
+
+def get_groups_by_discipline(discipline_name: str) -> List[Dict[str, str]]:
+    workbook = openpyxl.load_workbook(PATH_TO_CONFIG_DATA)
+    groups = set()
+    
+    for sheet_name in workbook.sheetnames:
+        group, discipline = sheet_name.split('|')
+        if discipline.strip() == discipline_name:
+            groups.add(group.strip())
+    
+    return [{'id': idx, 'name': group} for idx, group in enumerate(groups, start=1)]
+
+def get_teams_by_group(group_name: str, discipline_name: str) -> List[Team]:
+    # Словарь для отображения имени группы на ID группы
+    group_id_map = {
+        '4316': 1,
+        '4317': 2
+        # Добавьте сюда другие группы по мере необходимости
+    }
+    
+    # Словарь для отображения имени дисциплины на ID дисциплины
+    discipline_id_map = {
+        'ОПД': 1,
+        'АЛГ': 2
+        # Добавьте сюда другие дисциплины по мере необходимости
+    }
+    
+    group_id = group_id_map.get(group_name)
+    discipline_id = discipline_id_map.get(discipline_name)
+    
+    teams = load_teams_from_excel()
+    filtered_teams = [team for team in teams if team.group_id == group_id and team.discipline_id == discipline_id]
+    print(f"Loaded teams: {teams}")  # Отладочная информация
+    print(f"Filtered teams for group {group_name} (ID {group_id}) and discipline {discipline_name} (ID {discipline_id}): {filtered_teams}")  # Отладочная информация
+    return filtered_teams
+
+
+
+

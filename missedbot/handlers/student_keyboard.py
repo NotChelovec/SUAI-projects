@@ -3,9 +3,6 @@ from enum import Enum, auto
 from telebot.types import Message, ReplyKeyboardMarkup, KeyboardButton
 
 
-class AdminException(Exception):
-    ...
-
 class StudentException(Exception):
     ...
 
@@ -20,14 +17,6 @@ class Command(Enum):
     CREATE_TEAM = auto()
     JOIN_TEAM = auto()
     MANAGE_TEAM = auto()
-
-__admin_commands = {
-    Command.DOWNLOAD_SHORT_REPORT: "Краткий отчет",
-    Command.DOWNLOAD_FULL_REPORT: "Полный отчет",
-    Command.INTERACTIVE_REPORT: "Интерактивный отчет",
-    Command.PRESENCE_CHECK: "Проверка присутствия",
-    Command.SEE_GROUP: "Список группы",
-}
 
 __student_commands = {
     Command.SEE_GROUP: "Список группы",

@@ -54,7 +54,7 @@ async def handle_team_name(message: Message):
             return
 
         team_number = crud.get_next_team_number(discipline_id, student.group_id)
-        full_team_name = f"Команда {team_number} {team_name}"
+        full_team_name = f"Команда {team_name}"
 
         try:
             team = crud.create_team(full_team_name, discipline_id, student.group_id, student.id)
@@ -63,5 +63,5 @@ async def handle_team_name(message: Message):
             await bot.send_message(message.chat.id, f"Произошла ошибка при создании или присоединении к команде: {e}")
             return
 
-    await bot.send_message(message.chat.id, f"Команда {full_team_name} создана. Вы являетесь создателем команды.", reply_markup=student_menu_keyboard())
+    await bot.send_message(message.chat.id, f"{full_team_name} создана. Вы являетесь создателем команды.", reply_markup=student_menu_keyboard())
     await bot.delete_state(user_id, message.chat.id)

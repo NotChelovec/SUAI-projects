@@ -26,11 +26,6 @@ async def callback_join_team(call):
         await bot.send_message(call.message.chat.id, "Студент не найден.")
         return
     
-    existing_team = crud.get_team_by_student_and_discipline(student.id, discipline_id)
-    if existing_team:
-        await bot.send_message(call.message.chat.id, f"Вы уже создали команду в этой дисциплине: {existing_team.name}.")
-        return
-    
     teams = crud.get_open_teams_by_discipline_and_group(discipline_id, student.group_id)
     if not teams:
         await bot.send_message(call.message.chat.id, "Нет доступных команд для присоединения.")
@@ -44,19 +39,25 @@ async def callback_join_team(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("join_team_select_"))
 async def callback_join_team_select(call):
-    team_id = int(call.data.split("_")[2])
-    user_id = call.from_user.id
-    student = crud.get_student_by_telegram_id(user_id)
+    try:
+        team_id = int(call.data.split("_")[-1])  # Обратите внимание на правильное деление строки
+        user_id = call.from_user.id
+        student = crud.get_student_by_telegram_id(user_id)
 
-    if not student:
-        await bot.send_message(call.message.chat.id, "Студент не найден.")
-        return
-    
-    team = crud.get_team_by_id(team_id)
-    if not team.is_open:
-        await bot.send_message(call.message.chat.id, "Набор в команду закрыт.")
-        return
-    
-    crud.join_team(team.id, student.id)
-    await bot.send_message(call.message.chat.id, f"Вы успешно присоединились к команде {team.name}.", reply_markup=student_menu_keyboard())
-    print(f"Студент {student.full_name} успешно присоединился к команде {team.name}.")  # Логирование
+        if not student:
+            await bot.send_message(call.message.chat.id, "Студент не найден.")
+            return
+
+        team = crud.get_team_by_id(team_id)
+        if team.status == 0:
+            await bot.send_message(call.message.chat.id, "Набор в команду закрыт.")
+            return
+
+        crud.join_team(team.id, student.id)
+        await bot.send_message(call.message.chat.id, f"Вы успешно присоединились к команде {team.name}.", reply_markup=student_menu_keyboard())
+        print(f"Студент {student.full_name} успешно присоединился к команде {team.name}.")
+    except ValueError as e:
+        print(f"Error converting team ID: {e}")
+        await bot.send_message(call.message.chat.id, "Произошла ошибка при обработке команды.")
+
+

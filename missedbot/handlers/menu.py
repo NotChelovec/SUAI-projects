@@ -10,7 +10,9 @@ from missedbot.handlers.see_group import see_student
 from missedbot.handlers.handle_my_teams import handle_my_teams
 from missedbot.handlers.create_team import handle_create_team
 from missedbot.handlers.join_team import handle_join_team
-from missedbot.handlers.student_keyboard import student_menu_keyboard, __admin_commands, __student_commands
+from missedbot.handlers.student_keyboard import student_menu_keyboard, __student_commands
+from missedbot.handlers.admin_keyboard import admin_menu_keyboard, __admin_commands, Command
+from missedbot.handlers.admin_view import handle_view_reports
 
 class AdminException(Exception):
     ...
@@ -29,6 +31,7 @@ class Command(Enum):
     CREATE_TEAM = auto()
     JOIN_TEAM = auto()
     MANAGE_TEAM = auto()
+    SHOW_REPORTS = auto()
 
 __admin_commands = {
     Command.DOWNLOAD_SHORT_REPORT: "Краткий отчет",
@@ -36,6 +39,7 @@ __admin_commands = {
     Command.INTERACTIVE_REPORT: "Интерактивный отчет",
     Command.PRESENCE_CHECK: "Проверка присутствия",
     Command.SEE_GROUP: "Список группы",
+    Command.SHOW_REPORTS: "Отчёты студентов",
 }
 
 __student_commands = {
@@ -73,6 +77,9 @@ def admin_menu_keyboard() -> ReplyKeyboardMarkup:
     markup.add(
         KeyboardButton(
             __admin_commands[Command.INTERACTIVE_REPORT],
+        ),
+        KeyboardButton(
+            __admin_commands[Command.SHOW_REPORTS],
         ),
     )
     return markup
@@ -160,6 +167,8 @@ async def handle_admin_commands(message: Message):
             await start_interactive_report(message)
         case Command.SEE_GROUP:
             await see_student(message)
+        case Command.SHOW_REPORTS(message):
+            await handle_view_reports(message)
 
 @bot.message_handler(
     is_admin=False,
