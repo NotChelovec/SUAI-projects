@@ -398,12 +398,35 @@ def get_discipline_by_id(discipline_id: int) -> Discipline:
 def save_teams_to_excel(teams: list):
     workbook = openpyxl.Workbook()
     sheet = workbook.active
-    sheet.append(['ID', 'Name', 'Discipline_ID', 'Group_ID', 'Creator_ID'])
+    sheet.append(['ID', 'Name', 'Discipline_ID', 'Group_ID', 'Creator_ID', 'Members', 'Reports'])
 
     for team in teams:
-        sheet.append([team.id, team.name, team.discipline_id, team.group_id, team.creator_id])
+        sheet.append([team.id, team.name, team.discipline_id, team.group_id, team.creator_id, team.members, team.reports])
 
     workbook.save(PATH_TO_TEAMS)
+
+def load_teams_from_excel() -> list:
+    if not os.path.exists(PATH_TO_TEAMS):
+        return []
+
+    workbook = openpyxl.load_workbook(PATH_TO_TEAMS)
+    sheet = workbook.active
+    teams = []
+
+    for row in sheet.iter_rows(min_row=2):
+        team = Team(
+            id=row[0].value,
+            name=row[1].value,
+            discipline_id=row[2].value,
+            group_id=row[3].value,
+            creator_id=row[4].value,
+            members=row[5].value,
+            reports=row[6].value if len(row) > 6 else ''
+        )
+        teams.append(team)
+
+    return teams
+
 
 def load_teams_from_excel() -> list:
     if not os.path.exists(PATH_TO_TEAMS):
@@ -455,3 +478,10 @@ def get_teams_created_by_user(student_id: int) -> list:
     user_teams = [team for team in teams if team.creator_id == student_id]
     return user_teams
 
+def save_report(team_id: int, report: str):
+    teams = load_teams_from_excel()
+    for team in teams:
+        if team.id == team_id:
+            team.reports = report
+            break
+    save_teams_to_excel(teams)

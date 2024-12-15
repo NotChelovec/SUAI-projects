@@ -1,9 +1,13 @@
 from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 from missedbot.handlers.student_keyboard import student_menu_keyboard
+from telebot.asyncio_handler_backends import StatesGroup, State
 from missedbot import bot
 from database import crud
 
+class TeamStates(StatesGroup):
+    AWAITING_REPORT = State()
+    
 @bot.message_handler(func=lambda message: message.text == "Мои команды")
 async def handle_my_teams(message: Message):
     user_id = message.from_user.id
@@ -17,7 +21,6 @@ async def handle_my_teams(message: Message):
         await bot.send_message(message.chat.id, "Вы не создали ни одной команды.")
         return
 
-    # Сохраняем команды пользователя в context user data для переключения между ними
     async with bot.retrieve_data(user_id, message.chat.id) as data:
         data['teams'] = teams
         data['current_team_index'] = 0
@@ -31,11 +34,11 @@ async def callback_next_team(call):
         async with bot.retrieve_data(user_id, call.message.chat.id) as data:
             teams = data['teams']
             current_team_index = data['current_team_index']
-            
+
             next_team_index = (current_team_index + 1) % len(teams)
             data['current_team_index'] = next_team_index
-            
-        team_id = data['teams'][next_team_index].id
+
+        team_id = teams[next_team_index].id
         team = crud.get_team_by_id(team_id)
         await show_team_info(call.message, [team], 0)
     except Exception as e:
@@ -46,20 +49,24 @@ async def show_team_info(message: Message, teams, index):
     try:
         team = teams[index]
         discipline_name = crud.get_discipline_by_id(team.discipline_id).name
-        
+
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("Далее", callback_data="next_team"))
         markup.add(InlineKeyboardButton("Управление командой", callback_data=f"manage_team_{team.id}"))
-        
+
         await bot.send_message(message.chat.id, f"{discipline_name} - группа {team.name}", reply_markup=markup)
     except Exception as e:
         print(f"Error in show_team_info: {e}")
         await bot.send_message(message.chat.id, "Произошла ошибка при отображении информации о команде.")
-    
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("manage_team_"))
 async def callback_manage_team(call):
     try:
-        team_id = int(call.data.split("_")[2])
+        callback_data = call.data.split("_")
+        if len(callback_data) < 3:
+            raise ValueError("Некорректные данные callback")
+
+        team_id = int(callback_data[2])
         user_id = call.from_user.id
         team = crud.get_team_by_id(team_id)
         student = crud.get_student_by_telegram_id(user_id)
@@ -78,3 +85,37 @@ async def callback_manage_team(call):
     except Exception as e:
         print(f"Error in manage_team callback: {e}")
         await bot.send_message(call.message.chat.id, "Произошла ошибка при управлении командой.")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("upload_report_"))
+async def callback_upload_report(call):
+    try:
+        callback_data = call.data.split("_")
+        if len(callback_data) < 3:
+            raise ValueError("Некорректные данные callback")
+
+        team_id = int(callback_data[2])
+        user_id = call.from_user.id
+
+        async with bot.retrieve_data(user_id, call.message.chat.id) as data:
+            data['team_id'] = team_id
+
+        await bot.send_message(call.message.chat.id, "Прикрепите ваш отчёт.\nТребуется указать тему проекта, фамилии участников, название команды и ссылку на репозиторий GitHub.")
+        await bot.set_state(user_id, TeamStates.AWAITING_REPORT, call.message.chat.id)
+    except Exception as e:
+        print(f"Error in upload_report callback: {e}")
+        await bot.send_message(call.message.chat.id, "Произошла ошибка при запросе отчёта.")
+
+@bot.message_handler(state=TeamStates.AWAITING_REPORT)
+async def handle_report_submission(message: Message):
+    user_id = message.from_user.id
+    report = message.text
+
+    async with bot.retrieve_data(user_id, message.chat.id) as data:
+        team_id = data['team_id']
+        try:
+            crud.save_report(team_id, report)
+            await bot.send_message(message.chat.id, "Ваш отчёт успешно сохранён.")
+        except Exception as e:
+            await bot.send_message(message.chat.id, f"Произошла ошибка при сохранении отчёта: {e}")
+
+    await bot.delete_state(user_id, message.chat.id)

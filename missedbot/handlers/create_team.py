@@ -58,10 +58,7 @@ async def handle_team_name(message: Message):
 
         try:
             team = crud.create_team(full_team_name, discipline_id, student.group_id, student.id)
-            crud.join_team(team.id, student.id)
-            teams = crud.load_teams_from_excel()
-            teams.append(team)
-            crud.save_teams_to_excel(teams)
+            crud.join_team(team.id, student)
         except Exception as e:
             await bot.send_message(message.chat.id, f"Произошла ошибка при создании или присоединении к команде: {e}")
             return

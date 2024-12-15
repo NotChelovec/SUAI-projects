@@ -7,7 +7,7 @@ from telebot.asyncio_handler_backends import StatesGroup, State
 from missedbot.handlers.create_team import handle_create_team, callback_choose_discipline, TeamStates
 from missedbot.handlers.join_team import handle_join_team, callback_join_team, callback_join_team_select
 from missedbot.handlers.menu import student_menu_keyboard
-from missedbot.handlers.handle_my_teams import handle_my_teams, callback_manage_team, callback_next_team
+from missedbot.handlers.handle_my_teams import handle_my_teams, callback_manage_team, callback_next_team, handle_report_submission
 # Словарь для хранения информации о пользователях
 user_data = {}
 
